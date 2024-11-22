@@ -14,11 +14,12 @@ var (
 )
 
 func Load() {
+	viper.AutomaticEnv()
 	viper.SetDefault(configconsts.VERSION, Version)
 	viper.SetDefault(configconsts.COMMIT, Commit)
-	viper.AutomaticEnv()
+	viper.SetDefault(configconsts.TANZU_AGENT_DATACENTER_URL, "")
 
-	DatacenterUrl := viper.GetString(configconsts.TANZU_AGENT_DATACENTER_URL)
+	DatacenterUrl = viper.GetString(configconsts.TANZU_AGENT_DATACENTER_URL)
 
 	if DatacenterUrl == "" {
 		panic("Datacenter URL is not set")
@@ -28,4 +29,8 @@ func Load() {
 
 func GetRorVersion() rorversion.RorVersion {
 	return rorversion.NewRorVersion(viper.GetString(configconsts.VERSION), viper.GetString(configconsts.COMMIT))
+}
+
+func GetDatacenterUrl() string {
+	return DatacenterUrl
 }

@@ -10,8 +10,10 @@ func main() {
 
 	clidownloaderconfig.Load()
 	rlog.Info("Tanzu Cli Downloader is starting", rlog.String("version", clidownloaderconfig.GetRorVersion().GetVersionWithCommit()))
-	err := clidownloader.DownloadCli(clidownloaderconfig.DatacenterUrl)
+	cliversions, err := clidownloader.DownloadCli(clidownloaderconfig.GetDatacenterUrl())
 	if err != nil {
 		panic(err)
 	}
+	rlog.Info("kubectl downloaded", rlog.String("version", cliversions.KubectlVersion))
+	rlog.Info("kubectl-vsphere downloaded", rlog.String("version", cliversions.KubectlVsphereVersion))
 }
