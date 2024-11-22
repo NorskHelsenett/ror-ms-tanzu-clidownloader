@@ -10,7 +10,7 @@ func main() {
 
 	clidownloaderconfig.Load()
 	rlog.Info("Tanzu Cli Downloader is starting", rlog.String("version", clidownloaderconfig.GetRorVersion().GetVersionWithCommit()))
-	cliversions, err := clidownloader.DownloadCli(clidownloaderconfig.GetDatacenterUrl(), clidownloaderconfig.AppPath)
+	cliversions, err := clidownloader.DownloadCli(clidownloaderconfig.GetDownloaderConfig())
 	if err != nil {
 		panic(err)
 	}

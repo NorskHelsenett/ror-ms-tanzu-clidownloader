@@ -1,6 +1,7 @@
 package clidownloaderconfig
 
 import (
+	"github.com/NorskHelsenett/ror-ms-tanzu-clidownloader/pkg/clidownloader"
 	"github.com/NorskHelsenett/ror/pkg/config/configconsts"
 	"github.com/NorskHelsenett/ror/pkg/config/rorversion"
 
@@ -8,10 +9,12 @@ import (
 )
 
 var (
-	Version       string = "1.1.0"
-	Commit        string = "dev"
-	DatacenterUrl string
-	AppPath       string
+	Version            string = "1.1.0"
+	Commit             string = "dev"
+	TanzuDatacenterUrl string
+	TanzuAppPath       string
+	TanzuUrlPath       string
+	DownloaderConfig   clidownloader.TanzuCliDownloaderConfig
 )
 
 func Load() {
@@ -19,13 +22,13 @@ func Load() {
 	viper.SetDefault(configconsts.VERSION, Version)
 	viper.SetDefault(configconsts.COMMIT, Commit)
 	viper.SetDefault(configconsts.TANZU_AGENT_DATACENTER_URL, "")
-	viper.SetDefault("APP_PATH", "/app")
+	viper.SetDefault("TANZU_URL_PATH", "wcp/plugin/linux-amd64/vsphere-plugin.zip")
+	viper.SetDefault("TANZU_APP_PATH", "/app")
 
-	DatacenterUrl = viper.GetString(configconsts.TANZU_AGENT_DATACENTER_URL)
-	AppPath = viper.GetString("APP_PATH")
-
-	if DatacenterUrl == "" {
-		panic("Datacenter URL is not set")
+	DownloaderConfig = clidownloader.TanzuCliDownloaderConfig{
+		DatacenterUrl: viper.GetString(configconsts.TANZU_AGENT_DATACENTER_URL),
+		UrlPath:       viper.GetString("TANZU_URL_PATH"),
+		AppPath:       viper.GetString("TANZU_APP_PATH"),
 	}
 
 }
@@ -34,6 +37,6 @@ func GetRorVersion() rorversion.RorVersion {
 	return rorversion.NewRorVersion(viper.GetString(configconsts.VERSION), viper.GetString(configconsts.COMMIT))
 }
 
-func GetDatacenterUrl() string {
-	return DatacenterUrl
+func GetDownloaderConfig() *clidownloader.TanzuCliDownloaderConfig {
+	return &DownloaderConfig
 }
