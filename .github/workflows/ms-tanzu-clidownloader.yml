@@ -94,6 +94,7 @@ jobs:
       - name: Move artifacts
         run: |
           mv binary-build dist
+          chmod +x dist/ms-tanzu-clidownloader
 
       - name: Install cosign
         if: github.event_name != 'pull_request'
