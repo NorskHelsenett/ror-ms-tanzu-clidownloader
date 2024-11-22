@@ -24,10 +24,9 @@ type CliVersions struct {
 	KubectlVsphereVersion string
 }
 
-func DownloadCli(datacenterUrl string) (*CliVersions, error) {
+func DownloadCli(datacenterUrl string, dst string) (*CliVersions, error) {
 	url := fmt.Sprintf("https://%s/%s", datacenterUrl, "wcp/plugin/linux-amd64/vsphere-plugin.zip")
 	dlFilePath := filepath.Join(os.TempDir(), "vsphere-plugin.zip")
-	dst := "app"
 
 	out, err := os.Create(dlFilePath)
 	if err != nil {

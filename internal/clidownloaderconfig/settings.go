@@ -11,6 +11,7 @@ var (
 	Version       string = "1.1.0"
 	Commit        string = "dev"
 	DatacenterUrl string
+	AppPath       string
 )
 
 func Load() {
@@ -18,8 +19,10 @@ func Load() {
 	viper.SetDefault(configconsts.VERSION, Version)
 	viper.SetDefault(configconsts.COMMIT, Commit)
 	viper.SetDefault(configconsts.TANZU_AGENT_DATACENTER_URL, "")
+	viper.SetDefault("APP_PATH", "/app")
 
 	DatacenterUrl = viper.GetString(configconsts.TANZU_AGENT_DATACENTER_URL)
+	AppPath = viper.GetString("APP_PATH")
 
 	if DatacenterUrl == "" {
 		panic("Datacenter URL is not set")
