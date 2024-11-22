@@ -103,6 +103,7 @@ func getKubectlVersion(path string) (string, error) {
 	}
 
 	args := []string{"version", "--client=true", "-o", "json"}
+	rlog.Debug("executing", rlog.String("cmd", path), rlog.Strings("args", args))
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	command := exec.CommandContext(ctx, path, args...) // #nosec G204 - we are not using user input
@@ -118,7 +119,7 @@ func getKubectlVersion(path string) (string, error) {
 		return "", err
 	}
 	versionstring := fmt.Sprintf("%s.%s", kubeversion.ClientVersion.Major, kubeversion.ClientVersion.Minor)
-
+	rlog.Debug("kubectl version found", rlog.String("version", versionstring))
 	return versionstring, nil
 }
 func getKubectlVsphereVersion(path string) (string, error) {
@@ -132,10 +133,11 @@ func getKubectlVsphereVersion(path string) (string, error) {
 	if !isExecOwner(fileinfo.Mode()) {
 		return "", fmt.Errorf("file %s is not executable", path)
 	}
-
 	args := []string{"version"}
+	rlog.Debug("executing", rlog.String("cmd", path), rlog.Strings("args", args))
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
+
 	command := exec.CommandContext(ctx, path, args...) // #nosec G204 - we are not using user input
 
 	data, err := command.CombinedOutput()
@@ -143,7 +145,7 @@ func getKubectlVsphereVersion(path string) (string, error) {
 		return "", err
 	}
 	datas := strings.Split(string(data), " ")
-
+	rlog.Debug("kubectl-vsphere version found", rlog.String("version", datas[2]))
 	return datas[2], nil
 }
 func isExecOwner(mode os.FileMode) bool {
