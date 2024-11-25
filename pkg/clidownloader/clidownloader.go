@@ -19,14 +19,32 @@ import (
 	kubectlversion "k8s.io/kubectl/pkg/cmd/version"
 )
 
+type TanzuCliDownloaderConfig struct {
+	DatacenterUrl string
+	UrlPath       string
+	AppPath       string
+}
+
+func (t TanzuCliDownloaderConfig) GetDatacenterUri() string {
+	if t.DatacenterUrl == "" || t.UrlPath == "" {
+		panic("Datacenter URL and or path is not set")
+	}
+	return fmt.Sprintf("https://%s/%s", t.DatacenterUrl, t.UrlPath)
+}
+
+func (t TanzuCliDownloaderConfig) GetAppPath() string {
+	return t.AppPath
+}
+
 type CliVersions struct {
 	KubectlVersion        string
 	KubectlVsphereVersion string
 }
 
-func DownloadCli(datacenterUrl string, dst string) (*CliVersions, error) {
-	url := fmt.Sprintf("https://%s/%s", datacenterUrl, "wcp/plugin/linux-amd64/vsphere-plugin.zip")
+func DownloadCli(config *TanzuCliDownloaderConfig) (*CliVersions, error) {
+	url := config.GetDatacenterUri()
 	dlFilePath := filepath.Join(os.TempDir(), "vsphere-plugin.zip")
+	dst := config.GetAppPath()
 
 	out, err := os.Create(dlFilePath)
 	if err != nil {
