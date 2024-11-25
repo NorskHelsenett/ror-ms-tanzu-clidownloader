@@ -57,7 +57,7 @@ jobs:
         echo $ROR_VERSION
         go get ./...
         mkdir -p dist/isbuilt
-        CGO_ENABLED=0 go build -o dist/ms-tanzu-clidownloader -ldflags "-w -extldflags '-static' -X internal/clidownloaderconfig.Version=$ROR_VERSION -X internal/clidownloaderconfig.Commit=$CI_COMMIT_SHORT_SHA" cmd/ms-tanzu-clidownloader/main.go
+        CGO_ENABLED=0 go build -o dist/ms-tanzu-clidownloader -ldflags "-w -extldflags '-static' -X github.com/NorskHelsenett/ror-ms-tanzu-clidownloader/internal/clidownloaderconfig.Version=$ROR_VERSION -X github.com/NorskHelsenett/ror-ms-tanzu-clidownloader/internal/clidownloaderconfig.Commit=$CI_COMMIT_SHORT_SHA" cmd/ms-tanzu-clidownloader/main.go
         chmod +x dist/ms-tanzu-clidownloader
         touch dist/isbuilt/ms-tanzu-clidownloader
       env:
