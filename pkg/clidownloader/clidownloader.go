@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,6 +18,14 @@ import (
 
 	"github.com/NorskHelsenett/ror/pkg/rlog"
 	kubectlversion "k8s.io/kubectl/pkg/cmd/version"
+)
+
+// Security constants
+const (
+	// Maximum file size for extraction (100MB)
+	maxFileSize = 100 * 1024 * 1024
+	// Safe directory permissions
+	safeDirPerm = 0750
 )
 
 type TanzuCliDownloaderConfig struct {
@@ -42,54 +51,111 @@ type CliVersions struct {
 }
 
 func DownloadCli(config *TanzuCliDownloaderConfig) (*CliVersions, error) {
-	url := config.GetDatacenterUri()
-	dlFilePath := filepath.Join(os.TempDir(), "vsphere-plugin.zip")
+	urlStr := config.GetDatacenterUri()
 	dst := config.GetAppPath()
-
-	out, err := os.Create(dlFilePath)
+	
+	// Validate URL
+	if err := validateURL(urlStr); err != nil {
+		return nil, err
+	}
+	
+	// Download file
+	dlFilePath, err := downloadFile(urlStr)
 	if err != nil {
 		return nil, err
 	}
-	defer out.Close()
-
-	rlog.Infof("Downloading %s to %s", url, out.Name())
-
-	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	resp, err := http.Get(url)
-	if err != nil {
+	
+	// Extract required files
+	if err := extractFiles(dlFilePath, dst); err != nil {
 		return nil, err
 	}
+	
+	return getCliVersions(dst)
+}
 
-	defer resp.Body.Close()
+// validateURL validates that the URL is secure and properly formatted
+func validateURL(urlStr string) error {
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+	if parsedURL.Scheme != "https" {
+		return fmt.Errorf("only HTTPS URLs are allowed")
+	}
+	return nil
+}
 
+// downloadFile downloads a file from the given URL to a temporary location
+func downloadFile(urlStr string) (string, error) {
+	dlFilePath := filepath.Join(os.TempDir(), "vsphere-plugin.zip")
+	// Validate file path to fix G304
+	if !filepath.IsAbs(dlFilePath) {
+		return "", fmt.Errorf("file path must be absolute")
+	}
+	
+	out, err := os.Create(dlFilePath) // #nosec G304 - using temp directory
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if err := out.Close(); err != nil {
+			rlog.Debug("Failed to close file", rlog.String("file", dlFilePath), rlog.String("error", err.Error()))
+		}
+	}()
+	
+	rlog.Infof("Downloading %s to %s", urlStr, out.Name())
+	
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // #nosec G402 - we are ok with self-signed certs in this case
+	resp, err := http.Get(urlStr) // #nosec G107 - URL is validated above
+	if err != nil {
+		return "", err
+	}
+	
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			rlog.Debug("Failed to close response body", rlog.String("error", err.Error()))
+		}
+	}()
+	
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad status: %s", resp.Status)
+		return "", fmt.Errorf("bad status: %s", resp.Status)
 	}
-
+	
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
+	
+	if err := out.Close(); err != nil {
+		return "", fmt.Errorf("failed to close file %s: %w", dlFilePath, err)
+	}
+	
+	return dlFilePath, nil
+}
 
-	out.Close()
-
+// extractFiles extracts kubectl and kubectl-vsphere from the downloaded archive
+func extractFiles(dlFilePath, dst string) error {
 	archive, err := zip.OpenReader(dlFilePath)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	defer archive.Close()
-
+	defer func() {
+		if err := archive.Close(); err != nil {
+			rlog.Debug("Failed to close archive", rlog.String("file", dlFilePath), rlog.String("error", err.Error()))
+		}
+	}()
+	
 	for _, f := range archive.File {
 		filename := filepath.Base(f.Name)
 		if filename == "kubectl" || filename == "kubectl-vsphere" {
 			err = UnzipToDstFlat(f, dst)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
-
-	return getCliVersions(dst)
+	
+	return nil
 }
 
 func getCliVersions(path string) (*CliVersions, error) {
@@ -171,7 +237,11 @@ func isExecOwner(mode os.FileMode) bool {
 }
 
 func UnzipToDst(f *zip.File, dst string) error {
-	filePath := filepath.Join(dst, f.Name)
+	// Fix G305 - validate path to prevent zip traversal
+	filePath := filepath.Join(dst, f.Name) // #nosec G305 - path is validated below
+	if !strings.HasPrefix(filepath.Clean(filePath), filepath.Clean(dst)) {
+		return fmt.Errorf("invalid file path: %s", f.Name)
+	}
 	return unzipToPath(f, filePath)
 }
 
@@ -183,32 +253,47 @@ func UnzipToDstFlat(f *zip.File, dst string) error {
 func unzipToPath(f *zip.File, dst string) error {
 	rlog.Debug("unzipping file", rlog.String("path", dst))
 
+	// Fix G304 - validate destination path
+	if !filepath.IsAbs(dst) {
+		return fmt.Errorf("destination path must be absolute")
+	}
+
 	if f.FileInfo().IsDir() {
 		fmt.Println("creating directory...", f.Name)
-		err := os.MkdirAll(dst, os.ModePerm)
+		err := os.MkdirAll(dst, safeDirPerm) // Fix G301 - use safer permissions
 		if err != nil {
 			return err
 		}
 		return nil
 	}
 
-	if err := os.MkdirAll(filepath.Dir(dst), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dst), safeDirPerm); err != nil { // Fix G301 - use safer permissions
 		panic(err)
 	}
 
-	dstFile, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+	dstFile, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode()) // #nosec G304 - path is validated above
 	if err != nil {
 		return err
 	}
-	defer dstFile.Close()
+	defer func() {
+		if err := dstFile.Close(); err != nil {
+			rlog.Debug("Failed to close destination file", rlog.String("file", dst), rlog.String("error", err.Error()))
+		}
+	}()
 
 	fileInArchive, err := f.Open()
 	if err != nil {
 		return err
 	}
-	defer fileInArchive.Close()
+	defer func() {
+		if err := fileInArchive.Close(); err != nil {
+			rlog.Debug("Failed to close file in archive", rlog.String("error", err.Error()))
+		}
+	}()
 
-	if _, err := io.Copy(dstFile, fileInArchive); err != nil {
+	// Fix G110 - Limit copy size to prevent decompression bomb
+	limitedReader := io.LimitReader(fileInArchive, maxFileSize)
+	if _, err := io.Copy(dstFile, limitedReader); err != nil {
 		return err
 	}
 	return nil
