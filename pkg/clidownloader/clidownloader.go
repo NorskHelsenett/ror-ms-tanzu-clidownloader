@@ -53,23 +53,23 @@ type CliVersions struct {
 func DownloadCli(config *TanzuCliDownloaderConfig) (*CliVersions, error) {
 	urlStr := config.GetDatacenterUri()
 	dst := config.GetAppPath()
-	
+
 	// Validate URL
 	if err := validateURL(urlStr); err != nil {
 		return nil, err
 	}
-	
+
 	// Download file
 	dlFilePath, err := downloadFile(urlStr)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Extract required files
 	if err := extractFiles(dlFilePath, dst); err != nil {
 		return nil, err
 	}
-	
+
 	return getCliVersions(dst)
 }
 
@@ -92,7 +92,7 @@ func downloadFile(urlStr string) (string, error) {
 	if !filepath.IsAbs(dlFilePath) {
 		return "", fmt.Errorf("file path must be absolute")
 	}
-	
+
 	out, err := os.Create(dlFilePath) // #nosec G304 - using temp directory
 	if err != nil {
 		return "", err
@@ -102,34 +102,34 @@ func downloadFile(urlStr string) (string, error) {
 			rlog.Debug("Failed to close file", rlog.String("file", dlFilePath), rlog.String("error", err.Error()))
 		}
 	}()
-	
+
 	rlog.Infof("Downloading %s to %s", urlStr, out.Name())
-	
+
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // #nosec G402 - we are ok with self-signed certs in this case
-	resp, err := http.Get(urlStr) // #nosec G107 - URL is validated above
+	resp, err := http.Get(urlStr)                                                                   // #nosec G107 - URL is validated above
 	if err != nil {
 		return "", err
 	}
-	
+
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
 			rlog.Debug("Failed to close response body", rlog.String("error", err.Error()))
 		}
 	}()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("bad status: %s", resp.Status)
 	}
-	
+
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
 		return "", err
 	}
-	
+
 	if err := out.Close(); err != nil {
 		return "", fmt.Errorf("failed to close file %s: %w", dlFilePath, err)
 	}
-	
+
 	return dlFilePath, nil
 }
 
@@ -144,7 +144,7 @@ func extractFiles(dlFilePath, dst string) error {
 			rlog.Debug("Failed to close archive", rlog.String("file", dlFilePath), rlog.String("error", err.Error()))
 		}
 	}()
-	
+
 	for _, f := range archive.File {
 		filename := filepath.Base(f.Name)
 		if filename == "kubectl" || filename == "kubectl-vsphere" {
@@ -154,7 +154,7 @@ func extractFiles(dlFilePath, dst string) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
