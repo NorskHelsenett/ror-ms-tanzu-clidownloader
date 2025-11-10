@@ -46,21 +46,32 @@ func DownloadCli(config *TanzuCliDownloaderConfig) (*CliVersions, error) {
 	dlFilePath := filepath.Join(os.TempDir(), "vsphere-plugin.zip")
 	dst := config.GetAppPath()
 
+	// #nosec G304 - dlFilePath is constructed from os.TempDir() and a fixed filename, not user input
 	out, err := os.Create(dlFilePath)
 	if err != nil {
 		return nil, err
 	}
-	defer out.Close()
+	defer func() {
+		if closeErr := out.Close(); closeErr != nil {
+			rlog.Error("failed to close file", closeErr)
+		}
+	}()
 
 	rlog.Infof("Downloading %s to %s", url, out.Name())
 
+	// #nosec G402 - InsecureSkipVerify is required for internal datacenter with self-signed certificates
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	// #nosec G107 - URL is constructed from configuration, not user input
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
 
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			rlog.Error("failed to close response body", closeErr)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("bad status: %s", resp.Status)
@@ -71,13 +82,19 @@ func DownloadCli(config *TanzuCliDownloaderConfig) (*CliVersions, error) {
 		return nil, err
 	}
 
-	out.Close()
+	if err = out.Close(); err != nil {
+		return nil, err
+	}
 
 	archive, err := zip.OpenReader(dlFilePath)
 	if err != nil {
 		return nil, err
 	}
-	defer archive.Close()
+	defer func() {
+		if closeErr := archive.Close(); closeErr != nil {
+			rlog.Error("failed to close archive", closeErr)
+		}
+	}()
 
 	for _, f := range archive.File {
 		filename := filepath.Base(f.Name)
@@ -171,7 +188,12 @@ func isExecOwner(mode os.FileMode) bool {
 }
 
 func UnzipToDst(f *zip.File, dst string) error {
+	// #nosec G305 - Path traversal is validated in the next lines
 	filePath := filepath.Join(dst, f.Name)
+	// Validate that the file path doesn't escape the destination directory
+	if !strings.HasPrefix(filepath.Clean(filePath), filepath.Clean(dst)+string(os.PathSeparator)) {
+		return fmt.Errorf("illegal file path: %s", filePath)
+	}
 	return unzipToPath(f, filePath)
 }
 
@@ -185,30 +207,42 @@ func unzipToPath(f *zip.File, dst string) error {
 
 	if f.FileInfo().IsDir() {
 		fmt.Println("creating directory...", f.Name)
-		err := os.MkdirAll(dst, os.ModePerm)
+		err := os.MkdirAll(dst, 0750)
 		if err != nil {
 			return err
 		}
 		return nil
 	}
 
-	if err := os.MkdirAll(filepath.Dir(dst), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dst), 0750); err != nil {
 		panic(err)
 	}
 
+	// #nosec G304 - dst is validated by caller to prevent path traversal
 	dstFile, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
 	if err != nil {
 		return err
 	}
-	defer dstFile.Close()
+	defer func() {
+		if closeErr := dstFile.Close(); closeErr != nil {
+			rlog.Error("failed to close destination file", closeErr)
+		}
+	}()
 
 	fileInArchive, err := f.Open()
 	if err != nil {
 		return err
 	}
-	defer fileInArchive.Close()
+	defer func() {
+		if closeErr := fileInArchive.Close(); closeErr != nil {
+			rlog.Error("failed to close file in archive", closeErr)
+		}
+	}()
 
-	if _, err := io.Copy(dstFile, fileInArchive); err != nil {
+	// Limit extraction to 100MB to prevent decompression bombs
+	const maxSize = 100 * 1024 * 1024 // 100MB
+	// #nosec G110 - Limited to maxSize to prevent decompression bomb attacks
+	if _, err := io.Copy(dstFile, io.LimitReader(fileInArchive, maxSize)); err != nil {
 		return err
 	}
 	return nil

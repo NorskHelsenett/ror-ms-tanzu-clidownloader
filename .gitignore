@@ -25,3 +25,8 @@ go.work.sum
 .env
 dist
 app
+
+bin/
+
+coverage.out
+coverage.html
