@@ -3,7 +3,7 @@ module github.com/NorskHelsenett/ror-ms-tanzu-clidownloader
 go 1.25.0
 
 require (
-	github.com/NorskHelsenett/ror v1.8.0
+	github.com/NorskHelsenett/ror v1.9.3
 	github.com/spf13/viper v1.21.0
 	k8s.io/kubectl v0.34.1
 )
