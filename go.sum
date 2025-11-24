@@ -4,8 +4,8 @@ github.com/MakeNowJust/heredoc v1.0.0 h1:cXCdzVdstXyiTqTvfqk9SDHpKNjxuom+DOlyEeQ
 github.com/MakeNowJust/heredoc v1.0.0/go.mod h1:mG5amYoWBHf8vpLOuehzbGGw0EHxpZZ6lCpQ4fNJ8LE=
 github.com/Masterminds/semver/v3 v3.4.0 h1:Zog+i5UMtVoCU8oKka5P7i9q9HgrJeGzI9SA1Xbatp0=
 github.com/Masterminds/semver/v3 v3.4.0/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
-github.com/NorskHelsenett/ror v1.8.0 h1:tYd1opPgkTYDrLqtlgi9yAj8zXrw3hfCQX0XFyeweHE=
-github.com/NorskHelsenett/ror v1.8.0/go.mod h1:D4ZM18hi7opjZCoDz8D8alBL+H1/jOX62MDsFWZHjRw=
+github.com/NorskHelsenett/ror v1.9.3 h1:ycRiOA2kYf1SF/zpBr0orJHeIHgmffzqdXo8IkBI4G0=
+github.com/NorskHelsenett/ror v1.9.3/go.mod h1:dhShj05vtsNjROa4kFZ1n5CGqyJCix99m/L1n1ZiWI8=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPdPJAN/hZIm0C4OItdklCFmMRWYpio=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
 github.com/blang/semver/v4 v4.0.0 h1:1PFHFE6yCCTv8C1TeyNNarDzntLi7wMI5i/pzqYIsAM=
